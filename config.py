@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-RPC_URL = "https://ethereum-holesky-rpc.publicnode.com"
+RPC_URL = os.getenv("RPC_URL")
 CHAIN_ID = 17000
 
 web3 = Web3(Web3.HTTPProvider(RPC_URL))
