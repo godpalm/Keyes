@@ -12,13 +12,12 @@ load_dotenv()
 ADDRESS = os.getenv("A_ADDRESS")
 PRIVATE_KEY = os.getenv("A_PK")
 ROLE = "SELL_ONLY"
-
 DB_PATH = "energy_A.db"
-
-# ✅ scale factor เก็บ 3 ตำแหน่งทศนิยม
 SCALE = 1000
 
-# ✅ สร้างตารางถ้ายังไม่มี
+# -------------------------------
+# สร้าง/เช็ค DB
+# -------------------------------
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
@@ -35,7 +34,6 @@ def init_db():
     conn.commit()
     conn.close()
 
-# ✅ อ่านค่าล่าสุดจาก DB
 def get_last_total():
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
@@ -44,9 +42,8 @@ def get_last_total():
     conn.close()
     if row:
         return row[0], row[1]
-    return 0.000, 0.000  # เริ่มจาก 0 ถ้า DB ว่าง
+    return 0.000, 0.000
 
-# ✅ บันทึกค่าลง DB
 def save_energy(total_gen, total_con, delta_gen, delta_con):
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
@@ -57,37 +54,58 @@ def save_energy(total_gen, total_con, delta_gen, delta_con):
     conn.commit()
     conn.close()
 
-# 🚀 เริ่มทำงาน
+# -------------------------------
+# Baseline Handling
+# -------------------------------
+def init_baseline():
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) FROM energy_log")
+    row_count = cur.fetchone()[0]
+    conn.close()
+    if row_count == 0:
+        baseline_gen = 0.0
+        baseline_con = 0.0
+        save_energy(baseline_gen, baseline_con, 0.0, 0.0)
+        print(f"📊 Baseline ถูกสร้าง → total_gen={baseline_gen}, total_con={baseline_con}")
+        return True
+    return False
+
+# -------------------------------
+# Main Loop
+# -------------------------------
 init_db()
+is_first_run = init_baseline()
 
 try:
     while True:
         last_gen, last_con = get_last_total()
 
-        # ✅ เพิ่มไฟทีละ 0.001 ทุก 5 นาที
+        # ตัวอย่างจำลองการผลิต
         new_gen = round(last_gen + 0.002, 3)
-        new_con = last_con  # บ้านนี้ยังไม่ใช้ไฟ
+        new_con = last_con  # บ้านนี้ไม่ใช้ไฟ
 
         delta_gen = round(new_gen - last_gen, 3)
         delta_con = 0.000
 
-        # บันทึกลง DB (เก็บทั้ง total และ delta)
         save_energy(new_gen, new_con, delta_gen, delta_con)
 
-        net = new_gen - new_con  # ✅ ใช้ total ในการ log
+        net = new_gen - new_con
         print(f"\n🏠 House A → ผลิตรวม {new_gen:.3f}, ใช้รวม {new_con:.3f} = Net {net:.3f} kWh")
 
-        # ✅ ส่งค่า delta เข้า contract
-        gen_int = int(delta_gen * SCALE)
-        con_int = int(delta_con * SCALE)
+        if is_first_run:
+            print("⏩ ข้ามรอบแรก (baseline) → ไม่ส่งค่าเข้า contract")
+            is_first_run = False
+        else:
+            gen_int = int(delta_gen * SCALE)
+            con_int = int(delta_con * SCALE)
+            report_energy(ADDRESS, PRIVATE_KEY, gen_int, con_int)
 
-        report_energy(ADDRESS, PRIVATE_KEY, gen_int, con_int)
+            if net < 0:
+                pay_energy(ADDRESS, PRIVATE_KEY, int(abs(net) * SCALE))
 
-        if net < 0:
-            pay_energy(ADDRESS, PRIVATE_KEY, int(abs(net) * SCALE))
-
-        time.sleep(300)  # 5 นาที
+        time.sleep(300)
 
 except KeyboardInterrupt:
-    print("🚪 ออกจากโปรแกรมแล้ว → resetEnergy()")
+    print("🚪 ออกจากโปรแกรม → resetEnergy()")
     reset_energy(ADDRESS, PRIVATE_KEY)

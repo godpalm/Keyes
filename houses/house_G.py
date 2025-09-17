@@ -1,7 +1,4 @@
-import time
-import os
-import sys
-import sqlite3
+import time, os, sys, sqlite3
 from dotenv import load_dotenv
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -9,16 +6,12 @@ from helpers import report_energy, pay_energy, reset_energy
 
 load_dotenv()
 
-ADDRESS = os.getenv("G_ADDRESS")       # บ้าน C เป็น BUY_ONLY
+ADDRESS = os.getenv("G_ADDRESS")
 PRIVATE_KEY = os.getenv("G_PK")
 ROLE = "BUY_ONLY"
-
 DB_PATH = "energy_G.db"
-SCALE = 1000  # แปลง float → int สำหรับ smart contract (milli-kWh)
+SCALE = 1000
 
-# -------------------------------
-# สร้างตาราง SQLite
-# -------------------------------
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
@@ -35,9 +28,6 @@ def init_db():
     conn.commit()
     conn.close()
 
-# -------------------------------
-# อ่านค่าล่าสุดจาก DB
-# -------------------------------
 def get_last_total():
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
@@ -46,11 +36,8 @@ def get_last_total():
     conn.close()
     if row:
         return row[0], row[1]
-    return 0.000, 0.000  # เริ่มจาก 0 ถ้า DB ว่าง
+    return 0.0, 0.0
 
-# -------------------------------
-# บันทึกค่าลง DB
-# -------------------------------
 def save_energy(total_gen, total_con, delta_gen, delta_con):
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
@@ -61,40 +48,54 @@ def save_energy(total_gen, total_con, delta_gen, delta_con):
     conn.commit()
     conn.close()
 
-# -------------------------------
-# เริ่มทำงาน
+def init_baseline():
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) FROM energy_log")
+    row_count = cur.fetchone()[0]
+    conn.close()
+    if row_count == 0:
+        baseline_gen = 0.0
+        baseline_con = 0.0
+        save_energy(baseline_gen, baseline_con, 0.0, 0.0)
+        print(f"📊 Baseline ถูกสร้าง → total_gen={baseline_gen}, total_con={baseline_con}")
+        return True
+    return False
+
 # -------------------------------
 init_db()
+is_first_run = init_baseline()
 
 try:
     while True:
         last_gen, last_con = get_last_total()
 
-        # บ้านซื้อ: ผลิต = 0, ใช้เพิ่ม 0.002 kWh ทุก 5 นาที
+        # บ้าน BUY_ONLY: ผลิต=0, ใช้เพิ่ม 0.002
         new_gen = last_gen
         new_con = round(last_con + 0.002, 3)
 
-        delta_gen = 0.000
+        delta_gen = 0.0
         delta_con = round(new_con - last_con, 3)
 
-        # บันทึกลง DB
         save_energy(new_gen, new_con, delta_gen, delta_con)
 
-        net = new_gen - new_con  # สำหรับ log
+        net = new_gen - new_con
         print(f"\n🏠 House G → ผลิตรวม {new_gen:.3f}, ใช้รวม {new_con:.3f} = Net {net:.3f} kWh")
 
-        # ส่งค่า delta เข้า contract (gen=0, con>0)
-        gen_int = int(delta_gen * SCALE)
-        con_int = int(delta_con * SCALE)
+        if is_first_run:
+            print("⏩ ข้ามรอบแรก (baseline) → ไม่ส่งค่าเข้า contract")
+            is_first_run = False
+        else:
+            gen_int = int(delta_gen * SCALE)
+            con_int = int(delta_con * SCALE)
+            report_energy(ADDRESS, PRIVATE_KEY, gen_int, con_int)
 
-        report_energy(ADDRESS, PRIVATE_KEY, gen_int, con_int)
+            if net < 0:
+                pay_energy(ADDRESS, PRIVATE_KEY, int(abs(net) * SCALE))
 
-        # ถ้าใช้เกินที่มี ต้องจ่าย token
-        if net < 0:
-            pay_energy(ADDRESS, PRIVATE_KEY, int(abs(net) * SCALE))
-
-        time.sleep(300)  # 5 นาที
+        time.sleep(300)
 
 except KeyboardInterrupt:
-    print("🚪 ออกจากโปรแกรมแล้ว → resetEnergy()")
+    print("🚪 ออกจากโปรแกรม → resetEnergy()")
     reset_energy(ADDRESS, PRIVATE_KEY)
+
