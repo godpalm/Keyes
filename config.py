@@ -4,8 +4,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-RPC_URL = "https://ethereum-holesky-rpc.publicnode.com"
-CHAIN_ID = 17000
+#RPC_URL = "https://ethereum-holesky-rpc.publicnode.com"
+RPC_URL = "https://ethereum-hoodi-rpc.publicnode.com"
+
+#CHAIN_ID = 17000
+CHAIN_ID = 560048
 
 web3 = Web3(Web3.HTTPProvider(RPC_URL))
 if not web3.is_connected():
