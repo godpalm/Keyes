@@ -18,43 +18,103 @@ TOKEN_ADDRESS = os.getenv("TOKEN_ADDRESS")
 MARKET_ADDRESS = os.getenv("MARKET_ADDRESS")
 
 TOKEN_ABI = [
-    {"constant": False,"inputs":[{"name":"spender","type":"address"},{"name":"value","type":"uint256"}],
-     "name":"approve","outputs":[{"name":"","type":"bool"}],"type":"function"},
-    {"constant": True,"inputs":[{"name":"owner","type":"address"},{"name":"spender","type":"address"}],
-     "name":"allowance","outputs":[{"name":"","type":"uint256"}],"type":"function"},
+    {
+        "constant": False,
+        "inputs": [
+            {"name": "spender", "type": "address"},
+            {"name": "value", "type": "uint256"}
+        ],
+        "name": "approve",
+        "outputs": [{"name": "", "type": "bool"}],
+        "type": "function"
+    },
+    {
+        "constant": True,
+        "inputs": [
+            {"name": "owner", "type": "address"},
+            {"name": "spender", "type": "address"}
+        ],
+        "name": "allowance",
+        "outputs": [{"name": "", "type": "uint256"}],
+        "type": "function"
+    },
 ]
 
 MARKET_ABI = [
+    # --- Write Functions ---
     {
-        "inputs":[
-            {"internalType":"uint256","name":"generated","type":"uint256"},
-            {"internalType":"uint256","name":"consumed","type":"uint256"}
+        "inputs": [
+            {"internalType": "uint256", "name": "generated", "type": "uint256"},
+            {"internalType": "uint256", "name": "consumed", "type": "uint256"}
         ],
-        "name":"reportEnergy",
-        "outputs":[],
-        "stateMutability":"nonpayable",
-        "type":"function"
+        "name": "reportEnergy",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
     },
     {
-        "inputs":[
-            {"internalType":"address","name":"buyer","type":"address"},
-            {"internalType":"uint256","name":"kwh","type":"uint256"},
-            {"internalType":"uint256","name":"pricePerKwh","type":"uint256"}
+        "inputs": [
+            {"internalType": "address", "name": "buyer", "type": "address"},
+            {"internalType": "uint256", "name": "kwhRequested", "type": "uint256"}
         ],
-        "name":"payEnergy",
-        "outputs":[],
-        "stateMutability":"nonpayable",
-        "type":"function"
+        "name": "payEnergy",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
     },
     {
-        "inputs":[],
-        "name":"resetEnergy",
-        "outputs":[],
-        "stateMutability":"nonpayable",
-        "type":"function"
+        "inputs": [],
+        "name": "resetEnergy",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {"internalType": "address", "name": "house", "type": "address"},
+            {"internalType": "uint256", "name": "pricePerKwh", "type": "uint256"}
+        ],
+        "name": "setPrice",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+
+    # --- Read Functions ---
+    {
+        "inputs": [
+            {"internalType": "address", "name": "house", "type": "address"}
+        ],
+        "name": "getPrice",
+        "outputs": [
+            {"internalType": "uint256", "name": "pricePerKwh", "type": "uint256"}
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {"internalType": "address", "name": "", "type": "address"}
+        ],
+        "name": "households",
+        "outputs": [
+            {"internalType": "uint256", "name": "generated", "type": "uint256"},
+            {"internalType": "uint256", "name": "consumed", "type": "uint256"},
+            {"internalType": "uint256", "name": "pricePerKwh", "type": "uint256"}
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "householdList",
+        "outputs": [
+            {"internalType": "address[]", "name": "", "type": "address[]"}
+        ],
+        "stateMutability": "view",
+        "type": "function"
     }
 ]
-
 
 token_contract = web3.eth.contract(address=TOKEN_ADDRESS, abi=TOKEN_ABI)
 market_contract = web3.eth.contract(address=MARKET_ADDRESS, abi=MARKET_ABI)
