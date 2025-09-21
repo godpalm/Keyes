@@ -30,19 +30,21 @@ def report_energy(addr, pk, gen, con):
     web3.eth.wait_for_transaction_receipt(tx_hash)
 
 
-def pay_energy(addr, pk, kwh, price_per_kwh=1):
-    price_per_kwh_wei = int(price_per_kwh * 10**18)
-    total_cost = kwh * price_per_kwh_wei
+def pay_energy(addr, pk, kwh):
+    """
+    ✅ เวอร์ชันใหม่ ไม่ต้องส่ง pricePerKwh ให้สัญญา
+    ✅ ราคาไปถูกกำหนดใน smart contract แล้ว
+    """
 
-    # ✅ ตรวจ approve ก่อน
-    approve_token_if_needed(addr, pk, total_cost)
+    # ✅ อนุมัติ token เผื่อไว้ (ใช้จำนวนมากพอ ไม่ต้อง approve บ่อย)
+    # สัญญาจะเป็นคนดึง token เท่าที่ต้องจ่ายเอง
+    approve_token_if_needed(addr, pk, 10**24)  # Approve สูง ๆ ไว้ก่อน
 
     # ✅ สร้าง transaction
     nonce = web3.eth.get_transaction_count(addr, "pending")
     tx = market_contract.functions.payEnergy(
         addr,
-        kwh,
-        price_per_kwh_wei
+        kwh
     ).build_transaction({
         "chainId": CHAIN_ID,
         "gas": 250000,
@@ -56,21 +58,11 @@ def pay_energy(addr, pk, kwh, price_per_kwh=1):
     try:
         receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
 
-        # ✅ ตรวจสถานะ
         if receipt["status"] == 0:
-            # ลองดึง reason (บาง network อาจจะไม่ได้)
-            try:
-                reason = market_contract.functions.payEnergy(
-                    addr, kwh, price_per_kwh_wei
-                ).call({"from": addr})
-            except ContractLogicError as e:
-                reason = str(e)
-
-            print(f"❌ การจ่ายเงินล้มเหลว, reason={reason}, tx={web3.to_hex(tx_hash)}")
+            print(f"❌ การจ่ายเงินล้มเหลว, tx={web3.to_hex(tx_hash)}")
             return None
 
-        # ✅ ผ่าน
-        print(f"✅ {addr} ซื้อ {kwh} kWh @ {price_per_kwh} PALM/kWh, tx={web3.to_hex(tx_hash)}")
+        print(f"✅ {addr} ซื้อ {kwh} kWh, tx={web3.to_hex(tx_hash)}")
         return receipt
 
     except ContractLogicError as e:
@@ -84,6 +76,7 @@ def pay_energy(addr, pk, kwh, price_per_kwh=1):
     except Exception as e:
         print(f"❌ Unknown error: {str(e)}")
         return None
+
 
 def reset_energy(addr, pk):
     nonce = web3.eth.get_transaction_count(addr, "pending")

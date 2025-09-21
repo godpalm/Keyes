@@ -12,7 +12,7 @@ CHAIN_ID = 560048
 
 web3 = Web3(Web3.HTTPProvider(RPC_URL))
 if not web3.is_connected():
-    raise Exception("❌ เชื่อมต่อ Holesky ไม่ได้")
+    raise Exception("❌ เชื่อมต่อ Hoodi ไม่ได้")
 
 TOKEN_ADDRESS = os.getenv("TOKEN_ADDRESS")
 MARKET_ADDRESS = os.getenv("MARKET_ADDRESS")
